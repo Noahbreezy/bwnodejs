@@ -43,6 +43,20 @@ const validateDate = [
     query('date').notEmpty().withMessage('Date is required').isISO8601().withMessage('Date must be a valid date')
 ];
 
+const validateKills = [
+    query('kills').isInt({ min: 0 }).withMessage('Kills must be a positive integer')
+];
+
+// Middleware to check if the request is from localhost
+const checkLocalhost = (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    if (ip === '127.0.0.1' || ip === '::1') {
+        next();
+    } else {
+        res.status(403).send('Forbidden: This endpoint can only be accessed from localhost');
+    }
+};
+
 // Error handling middleware
 const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
@@ -88,6 +102,42 @@ app.get('/users', async (req, res) => {
         res.status(500).send(err.message);
     }
 });
+
+// Search users by username
+app.get('/users/search', async (req, res) => {
+    const { username } = req.query;
+    try {
+        const users = await db.searchUserByUsername(username);
+        res.json(users);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+// Route for searching users by username, first_name, and last_name
+app.get('/users/searchByDetails', validateUserDetails, handleValidationErrors, async (req, res) => {
+    const { username = '', first_name = '', last_name = '' } = req.query;
+
+    try {
+        const users = await db.searchUserByDetails(username, first_name, last_name);
+        res.json(users);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+// Route to delete users with less than a certain amount of kills
+app.delete('/users/deleteByKills', checkLocalhost, validateKills, handleValidationErrors, async (req, res) => {
+    const { kills } = req.query;
+
+    try {
+        await db.deleteUsersWithLessThanKills(parseInt(kills));
+        res.send('Users deleted');
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
 
 // Routes for statistics
 app.post('/statistics', validateStatistic, handleValidationErrors, async (req, res) => {
@@ -161,29 +211,6 @@ app.get('/statistics/searchByDate', validateDate, handleValidationErrors, async 
     try {
         const statistics = await db.searchStatisticsByDate(date);
         res.json(statistics);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
-});
-
-// Search users by username
-app.get('/users/search', async (req, res) => {
-    const { username } = req.query;
-    try {
-        const users = await db.searchUserByUsername(username);
-        res.json(users);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
-});
-
-// Route for searching users by username, first_name, and last_name
-app.get('/users/searchByDetails', validateUserDetails, handleValidationErrors, async (req, res) => {
-    const { username = '', first_name = '', last_name = '' } = req.query;
-
-    try {
-        const users = await db.searchUserByDetails(username, first_name, last_name);
-        res.json(users);
     } catch (err) {
         res.status(500).send(err.message);
     }

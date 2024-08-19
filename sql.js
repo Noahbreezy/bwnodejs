@@ -103,6 +103,20 @@ class sqlFunctions {
     `;
         return this.query(sql, [`%${username}%`, `%${first_name}%`, `%${last_name}%`]);
     }
+
+    // Delete users with less than a certain amount of kills
+    deleteUsersWithLessThanKills(kills) {
+        const sql = `
+            DELETE FROM users 
+            WHERE id IN (
+                SELECT user_id 
+                FROM statistics 
+                GROUP BY user_id 
+                HAVING SUM(kills) < ?
+            )
+        `;
+        return this.query(sql, [kills]);
+    }
 }
 
 module.exports = sqlFunctions;
