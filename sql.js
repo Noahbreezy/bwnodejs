@@ -43,7 +43,7 @@ class sqlFunctions {
     }
 
     getAllUsers() {
-        const sql = 'SELECT * FROM users';
+        const sql = 'SELECT * FROM users ORDER BY username ASC';
         return this.query(sql);
     }
 
@@ -74,16 +74,34 @@ class sqlFunctions {
         return this.query(sql, [limit, offset]);
     }
 
-    // Search for statistics by date
+    // Search for statistics for a specific date
     searchStatisticsByDate(date) {
         const sql = 'SELECT * FROM statistics WHERE date = ?';
         return this.query(sql, [date]);
     }
 
+    // Search for a date range
+    searchStatisticsByDateRange(startDate, endDate) {
+        const sql = 'SELECT * FROM statistics WHERE date BETWEEN ? AND ?';
+        return this.query(sql, [startDate, endDate]);
+    }
+
     // Search for users by username
     searchUserByUsername(username) {
-        const sql = 'SELECT * FROM users WHERE username LIKE ?';
+        const sql = 'SELECT * FROM users WHERE username LIKE ? ORDER BY username ASC';
         return this.query(sql, [`%${username}%`]);
+    }
+
+    // Search for users by username, first_name, and last_name
+    searchUserByDetails(username, first_name, last_name) {
+        const sql = `
+        SELECT * FROM users 
+        WHERE username LIKE ? 
+        AND first_name LIKE ? 
+        AND last_name LIKE ? 
+        ORDER BY username ASC
+    `;
+        return this.query(sql, [`%${username}%`, `%${first_name}%`, `%${last_name}%`]);
     }
 }
 

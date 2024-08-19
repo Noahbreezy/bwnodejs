@@ -3,7 +3,7 @@ const express = require('express');
 const https = require('https');
 const morgan = require('morgan');
 const sqlFunctions = require('./sql');
-const { body, validationResult } = require('express-validator');
+const { body, query, validationResult } = require('express-validator');
 
 const app = express();
 app.use(express.json());
@@ -22,10 +22,25 @@ const validateUser = [
     body('last_name').notEmpty().withMessage('Last name is required').isAlpha().withMessage('Last name cannot contain numbers')
 ];
 
+const validateUserDetails = [
+    query('username').optional().isString().withMessage('Username must be a string'),
+    query('first_name').optional().isString().withMessage('First name must be a string'),
+    query('last_name').optional().isString().withMessage('Last name must be a string')
+];
+
 const validateStatistic = [
     body('user_id').isInt().withMessage('User ID must be an integer'),
     body('kills').isNumeric().withMessage('Kills must be numeric'),
     body('date').notEmpty().withMessage('Date is required')
+];
+
+const validateDateRange = [
+    query('start_date').notEmpty().withMessage('Start date is required').isISO8601().withMessage('Start date must be a valid date'),
+    query('end_date').optional().isISO8601().withMessage('End date must be a valid date')
+];
+
+const validateDate = [
+    query('date').notEmpty().withMessage('Date is required').isISO8601().withMessage('Date must be a valid date')
 ];
 
 // Error handling middleware
@@ -122,11 +137,52 @@ app.get('/statistics/paginate', async (req, res) => {
     }
 });
 
-// Search routes
+// Searching statistics by date range
+app.get('/statistics/search', validateDateRange, handleValidationErrors, async (req, res) => {
+    const { start_date, end_date } = req.query;
+    const endDate = end_date || new Date().toISOString().split('T')[0]; // Default to current date if end_date is not provided
+
+    if (new Date(start_date) > new Date(endDate)) {
+        return res.status(400).send('End date must be more recent than start date');
+    }
+
+    try {
+        const statistics = await db.searchStatisticsByDateRange(start_date, endDate);
+        res.json(statistics);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+// Searching statistics by a specific date
+app.get('/statistics/searchByDate', validateDate, handleValidationErrors, async (req, res) => {
+    const { date } = req.query;
+
+    try {
+        const statistics = await db.searchStatisticsByDate(date);
+        res.json(statistics);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+// Search users by username
 app.get('/users/search', async (req, res) => {
     const { username } = req.query;
     try {
         const users = await db.searchUserByUsername(username);
+        res.json(users);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+// Route for searching users by username, first_name, and last_name
+app.get('/users/searchByDetails', validateUserDetails, handleValidationErrors, async (req, res) => {
+    const { username = '', first_name = '', last_name = '' } = req.query;
+
+    try {
+        const users = await db.searchUserByDetails(username, first_name, last_name);
         res.json(users);
     } catch (err) {
         res.status(500).send(err.message);
